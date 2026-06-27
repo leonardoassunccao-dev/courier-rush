@@ -173,6 +173,7 @@ kbd { border: 1px solid var(--line); border-bottom-color: rgba(255,255,255,.35);
   .hud-distance { min-width: 68px; }
   .icon-button { width: 36px; height: 36px; }
   .powerup-chip { top: 72px; right: 12px; }
+  .hud-cluster, .powerup-chip, .toast, .lane-hint { backdrop-filter: none; -webkit-backdrop-filter: none; background-color: rgba(5,12,15,.82); }
   .garage-header { height: 72px; padding: max(12px,env(safe-area-inset-top)) 14px 10px; }
   .garage-header > div:nth-child(2) span { display: none; }
   .vehicle-copy { left: 18px; top: 13%; width: 52vw; }

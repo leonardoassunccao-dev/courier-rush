@@ -28,3 +28,7 @@ npm run test:visual
 ```
 
 O teste visual usa o Microsoft Edge instalado no Windows e salva capturas em `artifacts/`.
+
+O perfil mobile com CPU limitada pode ser executado com `npm run profile:mobile`. O jogo reduz automaticamente DPR, partículas, sombras e distância de visão apenas quando detecta frames lentos persistentes.
+
+Veja a metodologia e os resultados em [PERFORMANCE.md](PERFORMANCE.md).

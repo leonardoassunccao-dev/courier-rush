@@ -4,8 +4,8 @@ export class InputController {
     this.startX = 0;
     this.startY = 0;
     window.addEventListener('keydown', event => this.key(event));
-    element.addEventListener('pointerdown', event => { this.startX = event.clientX; this.startY = event.clientY; });
-    element.addEventListener('pointerup', event => this.swipe(event));
+    element.addEventListener('pointerdown', event => { this.startX = event.clientX; this.startY = event.clientY; }, { passive: true });
+    element.addEventListener('pointerup', event => this.swipe(event), { passive: true });
   }
 
   key(event) {

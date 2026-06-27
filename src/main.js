@@ -4,6 +4,7 @@ import { InputController } from './game/input.js';
 import { AudioSystem } from './game/audio.js';
 import { GameWorld } from './render/world.js';
 import { FLEET, STAT_NAMES, getNewUnlock, loadFleetProfile, saveCustomization, saveVehicle } from './game/fleet.js';
+import { PerformanceGovernor } from './diagnostics/performance.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game-canvas');
@@ -22,9 +23,13 @@ let toastTimer = 0;
 let resultShown = false;
 let hintTimer = 0;
 let last = performance.now();
+let hudElapsed = 0;
+let loopStarted = false;
+const hudCache = { score: '', boxes: -1, distance: '', power: '', powerRatio: -1, turbo: false };
 let fleetProfile = loadFleetProfile(sim.best, sim.totalBoxes);
 let previewVehicle = fleetProfile.selected;
 let pendingUnlock = null;
+const performanceGovernor = new PerformanceGovernor(level => world.setQuality(level));
 
 function setScreen(name) {
   Object.entries(screens).forEach(([key, element]) => {
@@ -74,13 +79,18 @@ function handleEvent(event) {
 }
 
 function updateHud() {
-  score.textContent = Math.floor(sim.score).toLocaleString('pt-BR');
-  boxes.textContent = sim.boxes;
-  distance.textContent = `${sim.distance.toFixed(1).replace('.', ',')} km`;
-  const data = sim.turbo > 0 ? ['⚡','Turbo',sim.turbo/5] : sim.shield > 0 ? ['◆','Escudo',sim.shield/9] : sim.magnet > 0 ? ['∩','Ímã',sim.magnet/8] : null;
-  powerup.classList.toggle('is-hidden', !data);
-  if (data) { $('powerup-icon').textContent=data[0]; $('powerup-label').textContent=data[1]; $('powerup-meter').style.transform=`scaleX(${data[2]})`; }
-  $('speed-lines').classList.toggle('active', sim.turbo > 0);
+  const scoreValue = Math.floor(sim.score).toLocaleString('pt-BR');
+  const distanceValue = `${sim.distance.toFixed(1).replace('.', ',')} km`;
+  if (scoreValue !== hudCache.score) { score.textContent = scoreValue; hudCache.score = scoreValue; }
+  if (sim.boxes !== hudCache.boxes) { boxes.textContent = sim.boxes; hudCache.boxes = sim.boxes; }
+  if (distanceValue !== hudCache.distance) { distance.textContent = distanceValue; hudCache.distance = distanceValue; }
+  let powerType = '', icon = '', label = '', ratio = 0;
+  if (sim.turbo > 0) { powerType = 'turbo'; icon = '⚡'; label = 'Turbo'; ratio = sim.turbo / 5; }
+  else if (sim.shield > 0) { powerType = 'shield'; icon = '◆'; label = 'Escudo'; ratio = sim.shield / 9; }
+  else if (sim.magnet > 0) { powerType = 'magnet'; icon = '∩'; label = 'Ímã'; ratio = sim.magnet / 8; }
+  if (powerType !== hudCache.power) { powerup.classList.toggle('is-hidden', !powerType); if (powerType) { $('powerup-icon').textContent=icon; $('powerup-label').textContent=label; } hudCache.power=powerType; }
+  if (powerType && Math.abs(ratio-hudCache.powerRatio)>.015) { $('powerup-meter').style.transform=`scaleX(${ratio})`; hudCache.powerRatio=ratio; }
+  const turboActive=sim.turbo>0;if(turboActive!==hudCache.turbo){$('speed-lines').classList.toggle('active',turboActive);hudCache.turbo=turboActive;}
 }
 
 function showResults() {
@@ -189,15 +199,19 @@ window.addEventListener('blur', () => { if (sim.mode === 'playing') togglePause(
 function loop(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
   sim.update(dt); world.sync(sim, dt); world.render();
-  handleEvent(sim.event); updateHud();
+  performanceGovernor.record(dt, sim.mode === 'playing');
+  handleEvent(sim.event); hudElapsed += dt; if (hudElapsed >= .1) { hudElapsed = 0; updateHud(); }
   if (sim.mode === 'gameover') showResults();
   if (toastTimer > 0 && (toastTimer -= dt) <= 0) toast.classList.remove('show');
   if (hintTimer > 0 && (hintTimer -= dt) <= 0) $('lane-hint').classList.remove('show');
   requestAnimationFrame(loop);
 }
 
+function startLoop(){if(loopStarted)return;loopStarted=true;last=performance.now();requestAnimationFrame(loop);}
+
 updateMenuStats();
 world.setPlayerVehicle(fleetProfile.selected,fleetProfile.custom);
-requestAnimationFrame(loop);
+window.__courierDiagnostics=()=>({...world.getDiagnostics(),adaptiveQuality:performanceGovernor.level});
+startLoop();
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('/sw.js');

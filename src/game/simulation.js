@@ -86,12 +86,13 @@ export class GameSimulation {
       this.spawnTimer = Math.max(.58, 1.15 - this.distance * .025) + Math.random() * .32;
     }
 
-    for (const entity of this.entities) {
+    for (let index = 0; index < this.entities.length; index++) {
+      const entity = this.entities[index];
       entity.z += this.speed * dt * (entity.kind === 'obstacle' ? entity.pace : 1);
       entity.spin += dt * 2.4;
       if (this.magnet > 0 && entity.kind === 'collectible' && entity.z > -18) entity.lane += (this.lane - entity.lane) * dt * 4.5;
 
-      if (!entity.hit && entity.z > .8 && entity.z < 7.2 && Math.abs(entity.lane - this.lane) < .42) {
+      if (entity.z > -2 && !entity.hit && entity.z < 7.2 && Math.abs(entity.lane - this.lane) < .42) {
         entity.hit = true;
         if (entity.kind === 'obstacle') {
           if (this.shield > 0) {
@@ -108,7 +109,10 @@ export class GameSimulation {
         }
       }
     }
-    this.entities = this.entities.filter(entity => entity.z < 18 && !entity.collected);
+    for (let index = this.entities.length - 1; index >= 0; index--) {
+      const entity = this.entities[index];
+      if (entity.z >= 18 || entity.collected) this.entities.splice(index, 1);
+    }
 
     if (this.fuel <= 0) {
       this.finish();
