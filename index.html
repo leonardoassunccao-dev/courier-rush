@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#071013" />
+    <meta name="description" content="Courier Rush — entregas em alta velocidade pelas rodovias brasileiras." />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>Courier Rush</title>
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="game-canvas" aria-label="Courier Rush, jogo de corrida em rodovias brasileiras"></canvas>
+
+      <div class="cinema-bars" aria-hidden="true"></div>
+      <div id="speed-lines" aria-hidden="true"></div>
+
+      <section id="hud" class="hud is-hidden" aria-live="polite">
+        <div class="hud-cluster">
+          <div class="hud-stat hud-score"><span>Pontos</span><strong id="score">0</strong></div>
+          <div class="hud-divider"></div>
+          <div class="hud-stat"><span>Caixas</span><strong><i class="box-icon"></i><b id="boxes">0</b></strong></div>
+        </div>
+        <div class="hud-cluster hud-right">
+          <div class="hud-stat hud-distance"><span>Distância</span><strong id="distance">0,0 km</strong></div>
+          <button id="pause-button" class="icon-button" aria-label="Pausar jogo"><span></span><span></span></button>
+        </div>
+        <div id="powerup" class="powerup-chip is-hidden"><span id="powerup-icon">⚡</span><b id="powerup-label">Turbo</b><i><em id="powerup-meter"></em></i></div>
+      </section>
+
+      <section id="menu" class="screen menu-screen is-active">
+        <div class="brand-lockup">
+          <div class="brand-kicker">Leonardo Labs apresenta</div>
+          <h1><span>Courier</span><b>Rush</b></h1>
+          <p>Leve cada entrega mais longe.</p>
+        </div>
+        <nav class="main-actions" aria-label="Menu principal">
+          <button id="play-button" class="primary-button"><span>Jogar</span><i>→</i></button>
+          <button id="missions-button" class="menu-button"><span>Missões</span><b id="mission-progress">0 / 3</b></button>
+          <button id="records-button" class="menu-button"><span>Recorde</span><b id="menu-record">0</b></button>
+          <button id="settings-button" class="menu-button"><span>Configurações</span><i>⌁</i></button>
+        </nav>
+        <div class="menu-footer"><span>Deslize ou use</span><kbd>←</kbd><kbd>→</kbd><span>para trocar de faixa</span></div>
+      </section>
+
+      <section id="pause-screen" class="screen modal-screen" aria-hidden="true">
+        <div class="modal-card">
+          <div class="eyebrow">Rota pausada</div>
+          <h2>Pausa</h2>
+          <button id="resume-button" class="primary-button"><span>Continuar</span><i>→</i></button>
+          <button id="restart-button" class="menu-button"><span>Reiniciar</span></button>
+          <button class="menu-button menu-return"><span>Voltar ao menu</span></button>
+        </div>
+      </section>
+
+      <section id="game-over" class="screen modal-screen" aria-hidden="true">
+        <div class="modal-card result-card">
+          <div class="eyebrow">Entrega interrompida</div>
+          <h2 id="result-title">Fim de rota</h2>
+          <div class="result-score"><span>Pontuação</span><strong id="final-score">0</strong></div>
+          <div class="result-grid">
+            <div><span>Caixas</span><b id="final-boxes">0</b></div>
+            <div><span>Distância</span><b id="final-distance">0,0 km</b></div>
+            <div><span>Recorde</span><b id="final-record">0</b></div>
+          </div>
+          <button id="again-button" class="primary-button"><span>Jogar novamente</span><i>→</i></button>
+          <button class="menu-button menu-return"><span>Voltar ao menu</span></button>
+        </div>
+      </section>
+
+      <section id="info-screen" class="screen modal-screen" aria-hidden="true">
+        <div class="modal-card info-card">
+          <button id="info-close" class="close-button" aria-label="Fechar">×</button>
+          <div class="eyebrow" id="info-eyebrow">Courier Rush</div>
+          <h2 id="info-title">Missões</h2>
+          <div id="info-content"></div>
+        </div>
+      </section>
+
+      <div id="toast" class="toast" role="status"></div>
+      <div id="lane-hint" class="lane-hint"><span>←</span> Troque de faixa <span>→</span></div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
