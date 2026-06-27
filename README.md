@@ -2,6 +2,14 @@
 
 Endless runner 3D em rodovias brasileiras, construído com Three.js e Vite. Toda a arte atual é procedural e original.
 
+## Frota e garagem
+
+- 10 veículos originais com progressão do nível 1 ao 50
+- Modelos low-poly procedurais com rodas, suspensão, iluminação e materiais premium
+- Garagem 3D cinematográfica com atributos e câmera rotativa
+- Personalização persistente de pintura, faixa refletiva e nome
+- Oito implementos desbloqueáveis para os cavalos mecânicos
+
 ## Executar
 
 ```bash

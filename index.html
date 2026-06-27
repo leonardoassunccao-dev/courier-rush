@@ -38,11 +38,37 @@
         </div>
         <nav class="main-actions" aria-label="Menu principal">
           <button id="play-button" class="primary-button"><span>Jogar</span><i>→</i></button>
+          <button id="garage-button" class="menu-button garage-entry"><span>Garagem</span><b id="garage-level">Nível 1</b></button>
           <button id="missions-button" class="menu-button"><span>Missões</span><b id="mission-progress">0 / 3</b></button>
           <button id="records-button" class="menu-button"><span>Recorde</span><b id="menu-record">0</b></button>
           <button id="settings-button" class="menu-button"><span>Configurações</span><i>⌁</i></button>
         </nav>
         <div class="menu-footer"><span>Deslize ou use</span><kbd>←</kbd><kbd>→</kbd><span>para trocar de faixa</span></div>
+      </section>
+
+      <section id="garage" class="screen garage-screen" aria-hidden="true">
+        <header class="garage-header">
+          <button id="garage-close" class="garage-back" aria-label="Voltar ao menu">←</button>
+          <div><span>Leonardo Logistics</span><b>Garagem</b></div>
+          <div class="level-chip"><span>Nível da frota</span><b id="fleet-level">1</b></div>
+        </header>
+        <div class="vehicle-copy">
+          <div class="eyebrow" id="vehicle-class">Baú Urbano</div>
+          <h2 id="vehicle-name">Vértice U1</h2>
+          <p id="vehicle-note">Ágil, compacto e feito para a cidade.</p>
+          <button id="select-vehicle" class="primary-button compact"><span>Selecionado</span><i>✓</i></button>
+        </div>
+        <aside class="vehicle-stats" id="vehicle-stats" aria-label="Atributos do veículo"></aside>
+        <button id="customize-toggle" class="customize-toggle"><span>Personalizar</span><i>＋</i></button>
+        <aside id="customize-panel" class="customize-panel" aria-hidden="true">
+          <div class="customize-head"><span>Ateliê da frota</span><button id="customize-close">×</button></div>
+          <label>Cor da cabine <span id="cabin-swatches" class="swatches"></span></label>
+          <label>Faixa refletiva <span id="stripe-swatches" class="swatches"></span></label>
+          <label>Implemento <select id="implement-select"><option value="none">Somente cavalo</option><option value="box">Baú</option><option value="sider">Sider</option><option value="grain">Graneleiro</option><option value="tank">Tanque</option><option value="container">Container</option><option value="reefer">Frigorífico</option><option value="bitrem">Bitrem</option><option value="rodotrem">Rodotrem</option></select><small id="implement-hint">Disponível no nível 20</small></label>
+          <label>Nome do caminhão <input id="truck-name" maxlength="16" value="Pioneiro" /></label>
+          <button id="save-custom" class="primary-button compact"><span>Aplicar acabamento</span><i>✓</i></button>
+        </aside>
+        <nav id="fleet-rail" class="fleet-rail" aria-label="Veículos da frota"></nav>
       </section>
 
       <section id="pause-screen" class="screen modal-screen" aria-hidden="true">
@@ -76,6 +102,16 @@
           <div class="eyebrow" id="info-eyebrow">Courier Rush</div>
           <h2 id="info-title">Missões</h2>
           <div id="info-content"></div>
+        </div>
+      </section>
+
+      <section id="unlock-screen" class="screen unlock-screen" aria-hidden="true">
+        <div class="unlock-rays" aria-hidden="true"></div>
+        <div class="unlock-copy">
+          <div class="eyebrow">Conquista da frota</div>
+          <h2>Novo veículo<br />desbloqueado</h2>
+          <strong id="unlock-name">Vértice S5</strong>
+          <button id="unlock-continue" class="primary-button"><span>Ver na garagem</span><i>→</i></button>
         </div>
       </section>
 

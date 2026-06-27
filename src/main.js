@@ -3,6 +3,7 @@ import { GameSimulation } from './game/simulation.js';
 import { InputController } from './game/input.js';
 import { AudioSystem } from './game/audio.js';
 import { GameWorld } from './render/world.js';
+import { FLEET, STAT_NAMES, getNewUnlock, loadFleetProfile, saveCustomization, saveVehicle } from './game/fleet.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game-canvas');
@@ -10,7 +11,7 @@ const sim = new GameSimulation();
 const audio = new AudioSystem();
 const world = new GameWorld(canvas);
 
-const screens = { menu: $('menu'), pause: $('pause-screen'), gameover: $('game-over'), info: $('info-screen') };
+const screens = { menu: $('menu'), pause: $('pause-screen'), gameover: $('game-over'), info: $('info-screen'), garage: $('garage'), unlock: $('unlock-screen') };
 const hud = $('hud');
 const score = $('score');
 const boxes = $('boxes');
@@ -21,6 +22,9 @@ let toastTimer = 0;
 let resultShown = false;
 let hintTimer = 0;
 let last = performance.now();
+let fleetProfile = loadFleetProfile(sim.best, sim.totalBoxes);
+let previewVehicle = fleetProfile.selected;
+let pendingUnlock = null;
 
 function setScreen(name) {
   Object.entries(screens).forEach(([key, element]) => {
@@ -32,6 +36,8 @@ function setScreen(name) {
 
 function startGame() {
   audio.unlock(); audio.click();
+  fleetProfile = loadFleetProfile(sim.best, sim.totalBoxes);
+  world.setDisplayMode('road'); world.setPlayerVehicle(fleetProfile.selected, fleetProfile.custom);
   sim.start(); world.reset(); resultShown = false;
   setScreen(null); hud.classList.remove('is-hidden');
   $('lane-hint').classList.add('show'); hintTimer = 3.5;
@@ -40,6 +46,7 @@ function startGame() {
 
 function goMenu() {
   audio.click(); sim.reset(); world.reset();
+  world.setDisplayMode('road');world.setPlayerVehicle(fleetProfile.selected,fleetProfile.custom);
   hud.classList.add('is-hidden'); setScreen('menu');
   $('speed-lines').classList.remove('active');
   updateMenuStats();
@@ -83,14 +90,50 @@ function showResults() {
   $('final-distance').textContent = `${sim.distance.toFixed(1).replace('.', ',')} km`;
   $('final-record').textContent = sim.best.toLocaleString('pt-BR');
   $('result-title').textContent = sim.newBest ? 'Novo recorde' : 'Fim de rota';
-  setTimeout(() => { if (sim.mode === 'gameover') setScreen('gameover'); }, 620);
+  fleetProfile=loadFleetProfile(sim.best,sim.totalBoxes);pendingUnlock=getNewUnlock(fleetProfile.level);
+  setTimeout(() => { if (sim.mode !== 'gameover') return;if(pendingUnlock){$('unlock-name').textContent=`${pendingUnlock.name} · ${pendingUnlock.className}`;world.setPlayerVehicle(pendingUnlock,fleetProfile.custom);world.setDisplayMode('garage');setScreen('unlock');}else setScreen('gameover'); }, 620);
 }
 
 function updateMenuStats() {
+  fleetProfile=loadFleetProfile(sim.best,sim.totalBoxes);
   $('menu-record').textContent = sim.best.toLocaleString('pt-BR');
+  $('garage-level').textContent=`Nível ${fleetProfile.level}`;
   const completed = [sim.best >= 2000, sim.totalBoxes >= 25, sim.best >= 5000].filter(Boolean).length;
   $('mission-progress').textContent = `${completed} / 3`;
 }
+
+function renderFleetRail(){
+  $('fleet-level').textContent=fleetProfile.level;$('vehicle-class').textContent=previewVehicle.className;$('vehicle-name').textContent=previewVehicle.name;$('vehicle-note').textContent=previewVehicle.note;
+  $('vehicle-stats').innerHTML=STAT_NAMES.map((name,index)=>`<div class="stat-row"><span>${name}</span><b>${previewVehicle.stats[index]}</b><i><em style="width:${previewVehicle.stats[index]}%"></em></i></div>`).join('');
+  const unlocked=previewVehicle.level<=fleetProfile.level;const selected=previewVehicle.id===fleetProfile.selected.id;const select=$('select-vehicle');select.disabled=!unlocked||selected;select.querySelector('span').textContent=selected?'Selecionado':unlocked?'Usar na próxima rota':`Desbloqueia no nível ${previewVehicle.level}`;select.querySelector('i').textContent=selected?'✓':unlocked?'→':'◆';
+  $('fleet-rail').innerHTML=FLEET.map(vehicle=>`<button class="fleet-card ${vehicle.id===previewVehicle.id?'active':''} ${vehicle.level>fleetProfile.level?'locked':''}" data-vehicle="${vehicle.id}"><span>${vehicle.name}</span><b>${vehicle.className}</b><i>${vehicle.level>fleetProfile.level?`NÍVEL ${vehicle.level}`:vehicle.id===fleetProfile.selected.id?'ATIVO':'DISPONÍVEL'}</i></button>`).join('');
+  $('fleet-rail').querySelectorAll('.fleet-card').forEach(card=>card.addEventListener('click',()=>previewFleetVehicle(card.dataset.vehicle)));
+}
+
+function previewFleetVehicle(id){
+  const vehicle=FLEET.find(item=>item.id===id);if(!vehicle)return;previewVehicle=vehicle;audio.click();world.setPlayerVehicle(vehicle,fleetProfile.custom);renderFleetRail();
+}
+
+function openGarage(vehicleId){
+  audio.unlock();audio.click();fleetProfile=loadFleetProfile(sim.best,sim.totalBoxes);previewVehicle=FLEET.find(item=>item.id===vehicleId)||fleetProfile.selected;world.setPlayerVehicle(previewVehicle,fleetProfile.custom);world.setDisplayMode('garage');setScreen('garage');renderFleetRail();renderCustomization();
+}
+
+function closeGarage(){
+  audio.click();$('customize-panel').classList.remove('open');world.setDisplayMode('road');world.setPlayerVehicle(fleetProfile.selected,fleetProfile.custom);setScreen('menu');updateMenuStats();
+}
+
+function selectPreviewVehicle(){
+  if(previewVehicle.level>fleetProfile.level)return;saveVehicle(previewVehicle.id);fleetProfile.selected=previewVehicle;audio.collect('turbo');showToast(`${previewVehicle.name} preparado para a rota`);renderFleetRail();
+}
+
+const CABIN_COLORS=['#edece6','#c52035','#243d48','#18211d','#b88948','#555b60'];
+const STRIPE_COLORS=['#c52035','#e2b15d','#f1f0e9','#1d7f99','#34383a'];
+function renderSwatches(target,values,key){
+  $(target).innerHTML=values.map(color=>`<button class="swatch ${fleetProfile.custom[key]===color?'active':''}" style="background:${color}" data-color="${color}" aria-label="${color}"></button>`).join('');
+  $(target).querySelectorAll('.swatch').forEach(button=>button.addEventListener('click',()=>{fleetProfile.custom[key]=button.dataset.color;renderCustomization();world.setPlayerVehicle(previewVehicle,fleetProfile.custom);}));
+}
+function renderCustomization(){renderSwatches('cabin-swatches',CABIN_COLORS,'cabin');renderSwatches('stripe-swatches',STRIPE_COLORS,'stripe');$('truck-name').value=fleetProfile.custom.truckName;const implement=$('implement-select');implement.value=fleetProfile.custom.implement;implement.disabled=fleetProfile.level<20;$('implement-hint').textContent=fleetProfile.level<20?'Disponível no nível 20':'Compatível com cavalos mecânicos';}
+function saveCustom(){fleetProfile.custom.truckName=$('truck-name').value.trim()||'Pioneiro';fleetProfile.custom.implement=$('implement-select').value;saveCustomization(fleetProfile.custom);audio.collect('box');showToast('Acabamento salvo');$('customize-panel').classList.remove('open');world.setPlayerVehicle(previewVehicle,fleetProfile.custom);}
 
 function showInfo(type) {
   audio.click();
@@ -118,10 +161,18 @@ new InputController($('app'), {
   left: () => { if (sim.move(-1)) audio.lane(); },
   right: () => { if (sim.move(1)) audio.lane(); },
   pause: () => togglePause(),
-  confirm: () => { if (sim.mode === 'menu') startGame(); }
+  confirm: () => { if (sim.mode === 'menu'&&screens.menu.classList.contains('is-active')) startGame(); }
 });
 
 $('play-button').addEventListener('click', startGame);
+$('garage-button').addEventListener('click',()=>openGarage());
+$('garage-close').addEventListener('click',closeGarage);
+$('select-vehicle').addEventListener('click',selectPreviewVehicle);
+$('customize-toggle').addEventListener('click',()=>{$('customize-panel').classList.add('open');$('customize-panel').setAttribute('aria-hidden','false');});
+$('customize-close').addEventListener('click',()=>{$('customize-panel').classList.remove('open');$('customize-panel').setAttribute('aria-hidden','true');});
+$('save-custom').addEventListener('click',saveCustom);
+$('implement-select').addEventListener('change',event=>{fleetProfile.custom.implement=event.target.value;world.setPlayerVehicle(previewVehicle,fleetProfile.custom);});
+$('unlock-continue').addEventListener('click',()=>openGarage(pendingUnlock?.id));
 $('again-button').addEventListener('click', startGame);
 $('pause-button').addEventListener('click', () => togglePause(true));
 $('resume-button').addEventListener('click', () => togglePause(false));
@@ -146,6 +197,7 @@ function loop(now) {
 }
 
 updateMenuStats();
+world.setPlayerVehicle(fleetProfile.selected,fleetProfile.custom);
 requestAnimationFrame(loop);
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('/sw.js');

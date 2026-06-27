@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createTrafficCar, createTrafficTruck, createVehicle } from './vehicles.js';
 
 const LANE_X = 3.25;
 const ROAD_LENGTH = 44;
@@ -10,52 +11,6 @@ const box = (w, h, d, material) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d)
 function shadow(object) {
   object.traverse(child => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
   return object;
-}
-
-function createWheel(radius = .48, width = .3) {
-  const wheel = new THREE.Group();
-  const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, width, 16), mat(0x111516, .85));
-  tire.rotation.z = Math.PI / 2;
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(radius * .44, radius * .44, width + .02, 12), mat(0x9ca2a0, .32, .65));
-  hub.rotation.z = Math.PI / 2;
-  wheel.add(tire, hub);
-  return wheel;
-}
-
-function createTruck(player = false) {
-  const g = new THREE.Group();
-  const white = mat(player ? 0xf0efeb : 0xcbd2d2, .38, .16);
-  const dark = mat(0x111a1c, .28, .5);
-  const cargo = box(player ? 3.05 : 2.75, player ? 2.9 : 2.65, player ? 5.2 : 4.8, white);
-  cargo.position.set(0, 2.25, .9);
-  const cabin = box(player ? 2.95 : 2.65, 2.25, 2.05, white);
-  cabin.position.set(0, 1.85, -2.55);
-  const windshield = box(2.35, .74, .05, new THREE.MeshPhysicalMaterial({ color: 0x24383d, roughness: .12, metalness: .15, transmission: .05 }));
-  windshield.position.set(0, 2.34, -3.59);
-  const bumper = box(2.8, .28, .25, dark); bumper.position.set(0, .72, -3.58);
-  const under = box(2.3, .32, 6.5, dark); under.position.set(0, .67, .2);
-  g.add(cargo, cabin, windshield, bumper, under);
-  [[-1.35, -2.3], [1.35, -2.3], [-1.35, 2.15], [1.35, 2.15]].forEach(([x,z]) => { const w = createWheel(.52,.34); w.position.set(x,.65,z); g.add(w); });
-  const red = new THREE.MeshStandardMaterial({ color: 0x7b050a, emissive: 0xff1020, emissiveIntensity: 2.8, toneMapped: false });
-  [-.9,.9].forEach(x => { const light = box(.42,.16,.07,red); light.position.set(x,1.1,3.52); g.add(light); });
-  if (player) {
-    const stripe = box(3.08,.22,5.22,mat(0xb7162c,.4,.18)); stripe.position.set(0,1.18,.9); g.add(stripe);
-    const logo = box(1.3,.35,.035,mat(0x99152a,.5)); logo.position.set(0,2.25,3.53); g.add(logo);
-    const plate = box(.75,.18,.05,mat(0xe5e4dd,.7)); plate.position.set(0,.86,3.57); g.add(plate);
-  }
-  g.userData.wheels = g.children.filter(c => c.type === 'Group');
-  return shadow(g);
-}
-
-function createCar(color = 0x31586b) {
-  const g = new THREE.Group();
-  const bodyMat = mat(color,.3,.35);
-  const body = box(2.15,.72,4.1,bodyMat); body.position.y=.75;
-  const roof = box(1.75,.68,2.1,bodyMat); roof.position.set(0,1.42,-.15);
-  const glass = box(1.78,.42,.08,mat(0x16262c,.2,.5)); glass.position.set(0,1.53,-1.24);
-  g.add(body,roof,glass);
-  [[-1.03,-1.25],[1.03,-1.25],[-1.03,1.25],[1.03,1.25]].forEach(([x,z])=>{const w=createWheel(.34,.22);w.position.set(x,.48,z);g.add(w);});
-  return shadow(g);
 }
 
 function createBarrier() {
@@ -114,7 +69,7 @@ export class GameWorld {
     this.scene.background=new THREE.Color(0xe8935e);this.scene.fog=new THREE.Fog(0xcf8d66,45,250);
     this.camera=new THREE.PerspectiveCamera(53,innerWidth/innerHeight,.1,600);this.camera.position.set(0,6.2,14);this.camera.lookAt(0,1,-24);this.mobile=innerWidth/innerHeight<.66;
     this.renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));this.renderer.setSize(innerWidth,innerHeight);this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.1;
-    this.clock=new THREE.Clock();this.entityObjects=new Map();this.road=[];this.menuTime=0;this.stageId='';this.targetX=0;this.truckX=0;
+    this.clock=new THREE.Clock();this.entityObjects=new Map();this.road=[];this.menuTime=0;this.stageId='';this.targetX=0;this.truckX=0;this.displayMode='road';
     this.build();
     addEventListener('resize',()=>this.resize());
     canvas.addEventListener('webglcontextlost',e=>e.preventDefault());
@@ -125,9 +80,9 @@ export class GameWorld {
     this.sun=new THREE.DirectionalLight(0xffc58b,4.3);this.sun.position.set(-28,32,-42);this.sun.castShadow=true;this.sun.shadow.mapSize.set(1024,1024);this.sun.shadow.camera.left=-20;this.sun.shadow.camera.right=20;this.sun.shadow.camera.top=25;this.sun.shadow.camera.bottom=-8;this.sun.shadow.camera.near=1;this.sun.shadow.camera.far=120;this.scene.add(this.sun);
     const sunDisc=new THREE.Mesh(new THREE.CircleGeometry(7,32),new THREE.MeshBasicMaterial({color:0xffd099,fog:false}));sunDisc.position.set(-65,34,-230);this.scene.add(sunDisc);
     for(let i=0;i<ROAD_COUNT;i++){const segment=createRoadSegment(i);this.road.push(segment);this.scene.add(segment);}
-    this.player=createTruck(true);this.player.position.set(0,.05,5);this.scene.add(this.player);
+    this.activeVehicle={id:'urbano',body:'urban',accent:'#c52035'};this.player=createVehicle(this.activeVehicle,{},true);this.player.position.set(0,.05,5);this.scene.add(this.player);
     this.sign=createSign();this.scene.add(this.sign);
-    this.buildBackground();this.buildRain();
+    this.buildBackground();this.buildRain();this.buildGarage();this.buildRoadParticles();
   }
 
   buildBackground(){
@@ -140,20 +95,50 @@ export class GameWorld {
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(positions,3));this.rain=new THREE.Points(geo,new THREE.PointsMaterial({color:0xcbe2e7,size:.08,transparent:true,opacity:.52}));this.rain.visible=false;this.scene.add(this.rain);
   }
 
+  buildRoadParticles(){
+    const positions=new Float32Array(120*3);for(let i=0;i<120;i++){positions[i*3]=(Math.random()-.5)*4;positions[i*3+1]=Math.random()*.5;positions[i*3+2]=3+Math.random()*5;}
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(positions,3));this.roadParticles=new THREE.Points(geo,new THREE.PointsMaterial({color:0xcbb694,size:.12,transparent:true,opacity:.18,depthWrite:false}));this.scene.add(this.roadParticles);
+  }
+
+  buildGarage(){
+    this.garage=new THREE.Group();this.garage.visible=false;
+    const floor=new THREE.Mesh(new THREE.CircleGeometry(11,48),new THREE.MeshStandardMaterial({color:0x101719,roughness:.28,metalness:.45}));floor.rotation.x=-Math.PI/2;floor.position.y=-.03;floor.receiveShadow=true;this.garage.add(floor);
+    const ring=new THREE.Mesh(new THREE.RingGeometry(5.8,6.0,48),new THREE.MeshBasicMaterial({color:0x6e1722,transparent:true,opacity:.72,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=.012;this.garage.add(ring);
+    for(let i=0;i<7;i++){const panel=box(4.05,7,.12,mat(i%2?0x0c1214:0x131b1d,.92));panel.position.set(-12+i*4,3.5,9);this.garage.add(panel);}
+    this.garageKey=new THREE.SpotLight(0xffd2a2,7,35,.48,.65,1.2);this.garageKey.position.set(-7,10,8);this.garageKey.target.position.set(0,1,0);this.garageKey.castShadow=true;this.garageKey.shadow.mapSize.set(1024,1024);this.garage.add(this.garageKey,this.garageKey.target);
+    this.garageRim=new THREE.SpotLight(0xb81d34,10,28,.42,.72,1.4);this.garageRim.position.set(8,5,-5);this.garageRim.target.position.set(0,1,1);this.garage.add(this.garageRim,this.garageRim.target);this.scene.add(this.garage);
+  }
+
+  setPlayerVehicle(vehicle, custom){
+    const old=this.player;const position=old?.position.clone()||new THREE.Vector3(0,.05,5);const rotation=old?.rotation.clone();if(old)this.scene.remove(old);
+    this.player=createVehicle(vehicle,custom,true);this.player.position.copy(position);if(rotation)this.player.rotation.copy(rotation);this.scene.add(this.player);this.activeVehicle=vehicle;this.activeCustom=custom;
+  }
+
+  setDisplayMode(mode){
+    this.displayMode=mode;const garage=mode==='garage';this.garage.visible=garage;this.road.forEach(item=>item.visible=!garage);this.sign.visible=!garage;this.city.visible=!garage;this.mountains.visible=!garage;this.rain.visible=false;this.roadParticles.visible=!garage;
+    for(const object of this.entityObjects.values())object.visible=!garage;
+    if(garage){this.player.position.set(0,0,0);this.player.rotation.set(0,.55,0);this.camera.position.set(this.mobile?7.8:8.3,this.mobile?5.2:4.6,this.mobile?-15:-11.5);this.camera.lookAt(0,1.55,.3);this.scene.background.set(0x071013);this.scene.fog.color.set(0x071013);this.scene.fog.near=35;this.scene.fog.far=85;this.hemi.intensity=1.05;this.sun.intensity=.35;this.renderer.toneMappingExposure=1.28;}
+    else{this.player.position.set(0,.05,5);this.player.rotation.set(0,0,0);this.camera.position.set(0,this.mobile?7.8:6.7,this.mobile?24:18.5);}
+  }
+
   reset(){for(const object of this.entityObjects.values())this.scene.remove(object);this.entityObjects.clear();this.targetX=0;this.truckX=0;this.player.position.x=0;this.player.rotation.z=0;}
 
   sync(sim,dt){
-    const visualSpeed=sim.mode==='menu'?10:sim.mode==='playing'?sim.speed:0;
     this.menuTime+=dt;
+    if(this.displayMode==='garage'){
+      const longVehicle=['bitrem','rodotrem'].includes(this.activeVehicle?.body)||(this.activeCustom?.implement&&this.activeCustom.implement!=='none');const targetScale=longVehicle ? .7 : (this.mobile ? .86 : 1.1);this.player.scale.setScalar(targetScale);this.player.position.y=.04+Math.sin(this.menuTime*1.6)*.015;this.player.rotation.y+=dt*.16;this.player.userData.wheels?.forEach(w=>w.rotation.x-=dt*.16);
+      this.camera.position.x=THREE.MathUtils.damp(this.camera.position.x,this.mobile?7.8:8.3,3,dt);this.camera.position.y=THREE.MathUtils.damp(this.camera.position.y,this.mobile?5.2:4.6,3,dt);this.camera.position.z=THREE.MathUtils.damp(this.camera.position.z,this.mobile?-15:-11.5,3,dt);this.camera.fov=THREE.MathUtils.damp(this.camera.fov,this.mobile?57:48,3,dt);this.camera.lookAt(0,1.55,longVehicle?2.4:.3);this.camera.updateProjectionMatrix();return;
+    }
+    this.player.scale.setScalar(1);const visualSpeed=sim.mode==='menu'?10:sim.mode==='playing'?sim.speed:0;
     for(const segment of this.road){segment.position.z+=visualSpeed*dt;if(segment.position.z>44)segment.position.z-=ROAD_LENGTH*ROAD_COUNT;}
     this.sign.position.z+=visualSpeed*dt;if(this.sign.position.z>35)this.sign.position.z=-ROAD_LENGTH*7;
     this.targetX=sim.targetLane*LANE_X;this.truckX=THREE.MathUtils.damp(this.truckX,this.targetX,9,dt);this.player.position.x=this.truckX;
-    const laneDelta=this.targetX-this.truckX;this.player.rotation.z=THREE.MathUtils.damp(this.player.rotation.z,-laneDelta*.055,8,dt);this.player.position.y=.05+Math.sin(this.menuTime*7)*.018+(Math.abs(laneDelta)*.018);
+    const laneDelta=this.targetX-this.truckX;this.player.rotation.z=THREE.MathUtils.damp(this.player.rotation.z,-laneDelta*.055,8,dt);const engineVibe=Math.sin(this.menuTime*23)*.006;const suspension=Math.sin(this.menuTime*5.2)*.017+Math.sin(this.menuTime*9.7)*.006;this.player.position.y=.05+engineVibe+suspension+(Math.abs(laneDelta)*.018);
     this.player.userData.wheels.forEach(w=>w.rotation.x-=visualSpeed*dt*.9);
     const live=new Set();
-    sim.entities.forEach(entity=>{live.add(entity.id);let object=this.entityObjects.get(entity.id);if(!object){object=entity.kind==='obstacle'?(entity.type==='car'?createCar([0x31586b,0x9b3038,0xddd7c7,0x314344][entity.id%4]):entity.type==='truck'?createTruck(false):createBarrier()):createCollectible(entity.type);this.entityObjects.set(entity.id,object);this.scene.add(object);}object.position.x=entity.lane*LANE_X;object.position.z=entity.z;if(entity.kind==='collectible'){object.rotation.y=entity.spin;object.position.y=1.4+Math.sin(entity.spin*2)*.16;}else{object.position.y=.02;object.userData.wheels?.forEach(w=>w.rotation.x-=visualSpeed*dt*.8);}});
+    sim.entities.forEach(entity=>{live.add(entity.id);let object=this.entityObjects.get(entity.id);if(!object){object=entity.kind==='obstacle'?(entity.type==='car'?createTrafficCar([0x31586b,0x9b3038,0xddd7c7,0x314344][entity.id%4]):entity.type==='truck'?createTrafficTruck():createBarrier()):createCollectible(entity.type);this.entityObjects.set(entity.id,object);this.scene.add(object);}object.position.x=entity.lane*LANE_X;object.position.z=entity.z;if(entity.kind==='collectible'){object.rotation.y=entity.spin;object.position.y=1.4+Math.sin(entity.spin*2)*.16;}else{object.position.y=.02;object.userData.wheels?.forEach(w=>w.rotation.x-=visualSpeed*dt*.8);}});
     for(const [id,object] of this.entityObjects){if(!live.has(id)){this.scene.remove(object);this.entityObjects.delete(id);}}
-    this.updateStage(sim.stage,dt);this.updateRain(dt,sim.stage.rain);
+    this.updateStage(sim.stage,dt);this.updateRain(dt,sim.stage.rain);this.updateRoadParticles(dt,sim.stage.rain,visualSpeed);this.player.userData.headlightMaterial.emissiveIntensity=sim.stage.night>0.5?2.4:0;
     const turbo=sim.turbo>0;const baseZ=this.mobile?24:18.5;const baseFov=this.mobile?59:53;this.camera.position.z=THREE.MathUtils.damp(this.camera.position.z,turbo?baseZ+1.8:baseZ,3,dt);this.camera.position.y=THREE.MathUtils.damp(this.camera.position.y,this.mobile?7.8:6.7,4,dt);this.camera.position.x=THREE.MathUtils.damp(this.camera.position.x,this.truckX*.72,5,dt);this.camera.fov=THREE.MathUtils.damp(this.camera.fov,turbo?baseFov+6:baseFov,3,dt);this.camera.lookAt(this.camera.position.x*.45,1.15,-24);this.camera.updateProjectionMatrix();
   }
 
@@ -164,6 +149,7 @@ export class GameWorld {
   }
 
   updateRain(dt,amount){this.rain.visible=amount>.05;this.rain.material.opacity=.18+amount*.5;if(!this.rain.visible)return;const p=this.rain.geometry.attributes.position.array;for(let i=1;i<p.length;i+=3){p[i]-=dt*(24+amount*35);p[i+2]+=dt*10;if(p[i]<0){p[i]=22;p[i+2]=-Math.random()*90;}}this.rain.geometry.attributes.position.needsUpdate=true;}
+  updateRoadParticles(dt,rain,speed){const p=this.roadParticles.geometry.attributes.position.array;this.roadParticles.material.color.set(rain>.3?0xb9d3d8:0xcbb694);this.roadParticles.material.opacity=speed>15?.12+rain*.28:0;for(let i=0;i<p.length;i+=3){p[i]+=(Math.random()-.5)*dt*1.2;p[i+1]+=dt*(.35+rain*1.8);p[i+2]+=dt*(1.5+speed*.08);if(p[i+1]>1.4||p[i+2]>10){p[i]=(Math.random()-.5)*3.6;p[i+1]=.05;p[i+2]=3.8+Math.random()*2.5;}}this.roadParticles.geometry.attributes.position.needsUpdate=true;}
   render(){this.renderer.render(this.scene,this.camera);}
   resize(){this.camera.aspect=innerWidth/innerHeight;this.mobile=this.camera.aspect<.66;this.camera.updateProjectionMatrix();this.renderer.setSize(innerWidth,innerHeight);this.renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<700?1.35:1.7));}
 }
